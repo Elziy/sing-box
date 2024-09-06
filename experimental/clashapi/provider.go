@@ -30,6 +30,7 @@ func proxyProviderRouter(server *Server, router adapter.Router) http.Handler {
 func providerInfo(server *Server, provider adapter.OutboundProvider) *render.M {
 	return &render.M{
 		"name":             provider.Tag(),
+		"icon":             provider.Icon(),
 		"type":             "Proxy",
 		"vehicleType":      strings.ToUpper(provider.Type()),
 		"subscriptionInfo": provider.SubInfo(),

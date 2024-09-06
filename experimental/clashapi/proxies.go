@@ -82,6 +82,7 @@ func proxyInfo(server *Server, detour adapter.Outbound) *badjson.JSONObject {
 		}
 		info.Put("now", group.Now())
 		info.Put("all", group.All())
+		info.Put("icon", group.Icon())
 	}
 	return &info
 }

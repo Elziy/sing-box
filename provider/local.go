@@ -47,6 +47,7 @@ func NewLocalProvider(ctx context.Context, router adapter.Router, logger log.Con
 			logger:              logger,
 			tag:                 options.Tag,
 			path:                path,
+			icon:                options.Icon,
 			enableHealthcheck:   localOptions.EnableHealthcheck,
 			healthcheckUrl:      localOptions.HealthcheckUrl,
 			healthcheckInterval: interval,

@@ -56,6 +56,7 @@ func NewURLTest(ctx context.Context, router adapter.Router, logger log.ContextLo
 			ctx:             ctx,
 			tags:            options.Outbounds,
 			uses:            options.Providers,
+			icon:            options.Icon,
 			useAllProviders: options.UseAllProviders,
 			types:           options.Types,
 			ports:           make(map[int]bool),
@@ -191,6 +192,10 @@ func (s *URLTest) Now() string {
 		return s.group.selectedOutboundUDP.Tag()
 	}
 	return ""
+}
+
+func (s *URLTest) Icon() string {
+	return s.icon
 }
 
 func (s *URLTest) SelectedOutbound(network string) adapter.Outbound {

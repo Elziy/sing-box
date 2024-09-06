@@ -101,6 +101,7 @@ type Tracker interface {
 type OutboundGroup interface {
 	Outbound
 	Now() string
+	Icon() string
 	All() []string
 	UpdateOutbounds(tag string) error
 	SelectedOutbound(network string) Outbound

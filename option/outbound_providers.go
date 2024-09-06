@@ -9,6 +9,7 @@ import (
 type _OutboundProvider struct {
 	Type             string                   `json:"type"`
 	Path             string                   `json:"path"`
+	Icon             string                   `json:"icon,omitempty"`
 	Tag              string                   `json:"tag,omitempty"`
 	OutboundOverride *OutboundOverrideOptions `json:"outbound_override,omitempty"`
 	LocalOptions     LocalProviderOptions     `json:"-"`

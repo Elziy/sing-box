@@ -8,6 +8,7 @@ import (
 type OutboundProvider interface {
 	Tag() string
 	Path() string
+	Icon() string
 	Type() string
 	Outbounds() []Outbound
 	Outbound(tag string) (Outbound, bool)

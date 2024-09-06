@@ -49,6 +49,7 @@ type myProviderAdapter struct {
 	// Common config
 	tag                 string
 	path                string
+	icon                string
 	enableHealthcheck   bool
 	healthcheckUrl      string
 	healthcheckInterval time.Duration
@@ -79,6 +80,10 @@ func (a *myProviderAdapter) Tag() string {
 
 func (a *myProviderAdapter) Path() string {
 	return a.path
+}
+
+func (a *myProviderAdapter) Icon() string {
+	return a.icon
 }
 
 func (a *myProviderAdapter) Type() string {

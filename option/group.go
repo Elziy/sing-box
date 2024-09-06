@@ -10,6 +10,7 @@ type FilterOptions struct {
 type GroupOutboundOptions struct {
 	Outbounds       Listable[string] `json:"outbounds,omitempty"`
 	Providers       Listable[string] `json:"providers,omitempty"`
+	Icon            string           `json:"icon,omitempty"`
 	UseAllProviders bool             `json:"use_all_providers,omitempty"`
 	FilterOptions
 }

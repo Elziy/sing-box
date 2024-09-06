@@ -49,6 +49,7 @@ func NewSelector(ctx context.Context, router adapter.Router, logger log.ContextL
 			ctx:             ctx,
 			tags:            options.Outbounds,
 			uses:            options.Providers,
+			icon:            options.Icon,
 			useAllProviders: options.UseAllProviders,
 			types:           options.Types,
 			ports:           make(map[int]bool),
@@ -256,6 +257,10 @@ func (s *Selector) UpdateSelected(tag string) bool {
 
 func (s *Selector) Now() string {
 	return s.selected.Tag()
+}
+
+func (s *Selector) Icon() string {
+	return s.icon
 }
 
 func (s *Selector) SelectedOutbound(network string) adapter.Outbound {

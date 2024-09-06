@@ -84,6 +84,7 @@ func NewRemoteProvider(ctx context.Context, router adapter.Router, logger log.Co
 			logger:              logger,
 			tag:                 options.Tag,
 			path:                path,
+			icon:                options.Icon,
 			enableHealthcheck:   remoteOptions.EnableHealthcheck,
 			healthcheckUrl:      healthcheckUrl,
 			healthcheckInterval: healthcheckInterval,

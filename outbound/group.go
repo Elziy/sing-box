@@ -16,6 +16,7 @@ type myGroupAdapter struct {
 	ctx             context.Context
 	tags            []string
 	uses            []string
+	icon            string
 	useAllProviders bool
 	includes        []*R.Regexp
 	excludes        *R.Regexp
