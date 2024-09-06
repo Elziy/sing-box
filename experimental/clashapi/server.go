@@ -117,6 +117,8 @@ func NewServer(ctx context.Context, router adapter.Router, logFactory log.Observ
 		r.Get("/", hello(options.ExternalUI != ""))
 		r.Get("/logs", getLogs(logFactory))
 		r.Get("/traffic", traffic(trafficManager))
+		r.Get("/statistic", trafficStatistic(trafficManager))
+		r.Delete("/resetStatistic", resetStatistic(trafficManager))
 		r.Get("/version", version)
 		r.Mount("/configs", configRouter(server, logFactory))
 		r.Mount("/proxies", proxyRouter(server, router))
@@ -396,6 +398,20 @@ func traffic(trafficManager *trafficontrol.Manager) func(w http.ResponseWriter, 
 				break
 			}
 		}
+	}
+}
+
+func trafficStatistic(trafficManager *trafficontrol.Manager) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		s := trafficManager.TrafficStatistic()
+		render.JSON(w, r, s)
+	}
+}
+
+func resetStatistic(trafficManager *trafficontrol.Manager) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		trafficManager.ResetStatistic()
+		render.JSON(w, r, render.M{"message": "reset success"})
 	}
 }
 

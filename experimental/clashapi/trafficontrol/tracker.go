@@ -3,6 +3,7 @@ package trafficontrol
 import (
 	"net"
 	"net/netip"
+	"strings"
 	"time"
 
 	"github.com/sagernet/sing-box/adapter"
@@ -33,7 +34,7 @@ type TrackerMetadata struct {
 func (t TrackerMetadata) MarshalJSON() ([]byte, error) {
 	var inbound string
 	if t.Metadata.Inbound != "" {
-		inbound = t.Metadata.InboundType + "/" + t.Metadata.Inbound
+		inbound = t.Metadata.Inbound
 	} else {
 		inbound = t.Metadata.InboundType
 	}
@@ -68,7 +69,11 @@ func (t TrackerMetadata) MarshalJSON() ([]byte, error) {
 	}
 	var rule string
 	if t.Rule != nil {
-		rule = F.ToString(t.Rule, " => ", t.Rule.Outbound())
+		rule = F.ToString(t.Rule)
+		prefix := "rule_set="
+		if strings.HasPrefix(rule, prefix) {
+			rule = strings.TrimPrefix(rule, prefix)
+		}
 	} else {
 		rule = "final"
 	}
@@ -145,12 +150,19 @@ func NewTCPTracker(conn net.Conn, manager *Manager, metadata adapter.InboundCont
 		next         string
 		outbound     string
 		outboundType string
+		rulePayload  string
 	)
 	if rule == nil {
+		rulePayload = "FINAL"
 		if defaultOutbound, err := router.DefaultOutbound(N.NetworkTCP); err == nil {
 			next = defaultOutbound.Tag()
 		}
 	} else {
+		rulePayload = F.ToString(rule)
+		prefix := "rule_set="
+		if strings.HasPrefix(rulePayload, prefix) {
+			rulePayload = strings.TrimPrefix(rulePayload, prefix)
+		}
 		next = rule.Outbound()
 	}
 	for {
@@ -169,13 +181,16 @@ func NewTCPTracker(conn net.Conn, manager *Manager, metadata adapter.InboundCont
 	}
 	upload := new(atomic.Int64)
 	download := new(atomic.Int64)
+	isProxy := next != "DIRECT"
 	tracker := &TCPConn{
 		ExtendedConn: bufio.NewCounterConn(conn, []N.CountFunc{func(n int64) {
 			upload.Add(n)
-			manager.PushUploaded(n)
+			manager.PushUploaded(n, isProxy)
+			manager.PushRuleUploaded(rulePayload, n)
 		}}, []N.CountFunc{func(n int64) {
 			download.Add(n)
-			manager.PushDownloaded(n)
+			manager.PushDownloaded(n, isProxy)
+			manager.PushRuleDownloaded(rulePayload, n)
 		}}),
 		metadata: TrackerMetadata{
 			ID:           id,
@@ -232,12 +247,19 @@ func NewUDPTracker(conn N.PacketConn, manager *Manager, metadata adapter.Inbound
 		next         string
 		outbound     string
 		outboundType string
+		rulePayload  string
 	)
 	if rule == nil {
-		if defaultOutbound, err := router.DefaultOutbound(N.NetworkUDP); err == nil {
+		rulePayload = "FINAL"
+		if defaultOutbound, err := router.DefaultOutbound(N.NetworkTCP); err == nil {
 			next = defaultOutbound.Tag()
 		}
 	} else {
+		rulePayload = F.ToString(rule)
+		prefix := "rule_set="
+		if strings.HasPrefix(rulePayload, prefix) {
+			rulePayload = strings.TrimPrefix(rulePayload, prefix)
+		}
 		next = rule.Outbound()
 	}
 	for {
@@ -256,13 +278,16 @@ func NewUDPTracker(conn N.PacketConn, manager *Manager, metadata adapter.Inbound
 	}
 	upload := new(atomic.Int64)
 	download := new(atomic.Int64)
+	isProxy := next != "DIRECT"
 	trackerConn := &UDPConn{
 		PacketConn: bufio.NewCounterPacketConn(conn, []N.CountFunc{func(n int64) {
 			upload.Add(n)
-			manager.PushUploaded(n)
+			manager.PushUploaded(n, isProxy)
+			manager.PushRuleUploaded(rulePayload, n)
 		}}, []N.CountFunc{func(n int64) {
 			download.Add(n)
-			manager.PushDownloaded(n)
+			manager.PushDownloaded(n, isProxy)
+			manager.PushRuleDownloaded(rulePayload, n)
 		}}),
 		metadata: TrackerMetadata{
 			ID:           id,

@@ -16,12 +16,17 @@ import (
 )
 
 type Manager struct {
-	uploadTemp    atomic.Int64
-	downloadTemp  atomic.Int64
-	uploadBlip    atomic.Int64
-	downloadBlip  atomic.Int64
-	uploadTotal   atomic.Int64
-	downloadTotal atomic.Int64
+	uploadTemp          atomic.Int64
+	downloadTemp        atomic.Int64
+	uploadBlip          atomic.Int64
+	downloadBlip        atomic.Int64
+	uploadTotal         atomic.Int64
+	downloadTotal       atomic.Int64
+	directUploadTotal   atomic.Int64
+	directDownloadTotal atomic.Int64
+	proxyUploadTotal    atomic.Int64
+	proxyDownloadTotal  atomic.Int64
+	ruleStatistic       compatible.Map[string, *RuleStatistic]
 
 	connections             compatible.Map[uuid.UUID, Tracker]
 	closedConnectionsAccess sync.Mutex
@@ -60,14 +65,61 @@ func (m *Manager) Leave(c Tracker) {
 	}
 }
 
-func (m *Manager) PushUploaded(size int64) {
+func (m *Manager) PushUploaded(size int64, isProxy bool) {
 	m.uploadTemp.Add(size)
 	m.uploadTotal.Add(size)
+	if isProxy {
+		m.proxyUploadTotal.Add(size)
+	} else {
+		m.directUploadTotal.Add(size)
+	}
 }
 
-func (m *Manager) PushDownloaded(size int64) {
+func (m *Manager) PushDownloaded(size int64, isProxy bool) {
 	m.downloadTemp.Add(size)
 	m.downloadTotal.Add(size)
+	if isProxy {
+		m.proxyDownloadTotal.Add(size)
+	} else {
+		m.directDownloadTotal.Add(size)
+	}
+}
+
+func (m *Manager) PushRuleUploaded(rule string, size int64) {
+	value, ok := m.ruleStatistic.Load(rule)
+	if ok {
+		value.AddUpload(size)
+	} else {
+		ruleStat := &RuleStatistic{
+			Rule: rule,
+		}
+		ruleStat.AddUpload(size)
+		m.ruleStatistic.Store(rule, ruleStat)
+	}
+}
+
+func (m *Manager) PushRuleDownloaded(rule string, size int64) {
+	value, ok := m.ruleStatistic.Load(rule)
+	if ok {
+		value.AddDownload(size)
+	} else {
+		ruleStat := &RuleStatistic{
+			Rule: rule,
+		}
+		ruleStat.AddDownload(size)
+		m.ruleStatistic.Store(rule, ruleStat)
+	}
+}
+
+func (m *Manager) TrafficStatistic() *TrafficStatistic {
+	var ruleStatistic []*RuleStatistic
+	m.ruleStatistic.Range(func(key string, value *RuleStatistic) bool {
+		ruleStatistic = append(ruleStatistic, value)
+		return true
+	})
+	return &TrafficStatistic{
+		RuleStatistic: ruleStatistic,
+	}
 }
 
 func (m *Manager) Now() (up int64, down int64) {
@@ -119,10 +171,14 @@ func (m *Manager) Snapshot() *Snapshot {
 	m.memory = memStats.StackInuse + memStats.HeapInuse + memStats.HeapIdle - memStats.HeapReleased
 
 	return &Snapshot{
-		Upload:      m.uploadTotal.Load(),
-		Download:    m.downloadTotal.Load(),
-		Connections: connections,
-		Memory:      m.memory,
+		Upload:              m.uploadTotal.Load(),
+		Download:            m.downloadTotal.Load(),
+		Connections:         connections,
+		Memory:              m.memory,
+		DirectUploadTotal:   m.directUploadTotal.Load(),
+		DirectDownloadTotal: m.directDownloadTotal.Load(),
+		ProxyUploadTotal:    m.proxyUploadTotal.Load(),
+		ProxyDownloadTotal:  m.proxyDownloadTotal.Load(),
 	}
 }
 
@@ -130,9 +186,14 @@ func (m *Manager) ResetStatistic() {
 	m.uploadTemp.Store(0)
 	m.uploadBlip.Store(0)
 	m.uploadTotal.Store(0)
+	m.directUploadTotal.Store(0)
+	m.proxyUploadTotal.Store(0)
 	m.downloadTemp.Store(0)
 	m.downloadBlip.Store(0)
 	m.downloadTotal.Store(0)
+	m.directDownloadTotal.Store(0)
+	m.proxyDownloadTotal.Store(0)
+	m.ruleStatistic.Clear()
 }
 
 func (m *Manager) handle() {
@@ -158,17 +219,29 @@ func (m *Manager) Close() error {
 }
 
 type Snapshot struct {
-	Download    int64
-	Upload      int64
-	Connections []Tracker
-	Memory      uint64
+	Download            int64
+	Upload              int64
+	Connections         []Tracker
+	Memory              uint64
+	DirectUploadTotal   int64
+	DirectDownloadTotal int64
+	ProxyUploadTotal    int64
+	ProxyDownloadTotal  int64
+}
+
+type TrafficStatistic struct {
+	RuleStatistic []*RuleStatistic `json:"ruleStatistic"`
 }
 
 func (s *Snapshot) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]any{
-		"downloadTotal": s.Download,
-		"uploadTotal":   s.Upload,
-		"connections":   common.Map(s.Connections, func(t Tracker) TrackerMetadata { return t.Metadata() }),
-		"memory":        s.Memory,
+		"downloadTotal":       s.Download,
+		"uploadTotal":         s.Upload,
+		"directUploadTotal":   s.DirectUploadTotal,
+		"directDownloadTotal": s.DirectDownloadTotal,
+		"proxyUploadTotal":    s.ProxyUploadTotal,
+		"proxyDownloadTotal":  s.ProxyDownloadTotal,
+		"connections":         common.Map(s.Connections, func(t Tracker) TrackerMetadata { return t.Metadata() }),
+		"memory":              s.Memory,
 	})
 }
