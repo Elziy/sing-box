@@ -2,10 +2,12 @@ package route
 
 import (
 	"context"
+	"github.com/sagernet/sing/service/filemanager"
 	"io"
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -59,7 +61,7 @@ func NewRemoteRuleSet(ctx context.Context, router adapter.Router, logger logger.
 		},
 		ctx:            ctx,
 		cancel:         cancel,
-		path:           options.Path,
+		path:           filemanager.BasePath(ctx, os.ExpandEnv(options.Path)),
 		options:        options.RemoteOptions,
 		updateInterval: updateInterval,
 		pauseManager:   service.FromContext[pause.Manager](ctx),
@@ -220,7 +222,15 @@ func (s *RemoteRuleSet) fetchOnce(ctx context.Context, startContext adapter.Rule
 		s.lastEtag = eTagHeader
 	}
 	s.lastUpdated = time.Now()
-	os.WriteFile(s.path, content, 0o666)
+	dir := filepath.Dir(s.path)
+	if _, err := os.ReadDir(dir); err != nil {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			s.logger.ErrorContext(ctx, "make rule-set path error ", err)
+		} else {
+			s.logger.InfoContext(ctx, "make rule-set path ", dir)
+		}
+	}
+	os.WriteFile(s.path, content, 0o755)
 	s.logger.InfoContext(ctx, "updated rule-set ", s.tag)
 	return nil
 }
