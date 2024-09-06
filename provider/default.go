@@ -370,7 +370,7 @@ func (p *myProviderAdapter) updateGroups(router adapter.Router) error {
 }
 
 func (p *myProviderAdapter) loopHealthCheck() {
-	p.CheckOutbounds(true)
+	//p.CheckOutbounds(true)
 	if !p.enableHealthcheck {
 		return
 	}
