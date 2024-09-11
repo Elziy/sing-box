@@ -375,10 +375,10 @@ func (p *myProviderAdapter) updateGroups(router adapter.Router) error {
 }
 
 func (p *myProviderAdapter) loopHealthCheck() {
-	//p.CheckOutbounds(true)
 	if !p.enableHealthcheck {
 		return
 	}
+	p.CheckOutbounds(true)
 	p.healthCheckTicker = time.NewTicker(p.healthcheckInterval)
 	ctx, _ := context.WithCancel(p.ctx)
 	for {
