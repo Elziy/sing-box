@@ -41,10 +41,12 @@ func NewDefaultHeadlessRule(ctx context.Context, options option.DefaultHeadlessR
 			invert: options.Invert,
 		},
 	}
+	var ruleCount uint32 = 0
 	if len(options.Network) > 0 {
 		item := NewNetworkItem(options.Network)
 		rule.items = append(rule.items, item)
 		rule.allItems = append(rule.allItems, item)
+		ruleCount += uint32(len(item.networks))
 	}
 	if len(options.Domain) > 0 || len(options.DomainSuffix) > 0 {
 		item, err := NewDomainItem(options.Domain, options.DomainSuffix)
@@ -53,15 +55,26 @@ func NewDefaultHeadlessRule(ctx context.Context, options option.DefaultHeadlessR
 		}
 		rule.destinationAddressItems = append(rule.destinationAddressItems, item)
 		rule.allItems = append(rule.allItems, item)
+
+		ruleCount += uint32(len(options.Domain))
+		ruleCount += uint32(len(options.DomainSuffix))
+		//更准确，但是没必要
+		//Domain, DomainSuffix := item.matcher.Dump()
+		//ruleCount += uint32(len(Domain))
+		//ruleCount += uint32(len(DomainSuffix))
 	} else if options.DomainMatcher != nil {
 		item := NewRawDomainItem(options.DomainMatcher)
 		rule.destinationAddressItems = append(rule.destinationAddressItems, item)
 		rule.allItems = append(rule.allItems, item)
+		Domain, DomainSuffix := options.DomainMatcher.Dump()
+		ruleCount += uint32(len(Domain))
+		ruleCount += uint32(len(DomainSuffix))
 	}
 	if len(options.DomainKeyword) > 0 {
 		item := NewDomainKeywordItem(options.DomainKeyword)
 		rule.destinationAddressItems = append(rule.destinationAddressItems, item)
 		rule.allItems = append(rule.allItems, item)
+		ruleCount += uint32(len(item.keywords))
 	}
 	if len(options.DomainRegex) > 0 {
 		item, err := NewDomainRegexItem(options.DomainRegex)
@@ -70,6 +83,7 @@ func NewDefaultHeadlessRule(ctx context.Context, options option.DefaultHeadlessR
 		}
 		rule.destinationAddressItems = append(rule.destinationAddressItems, item)
 		rule.allItems = append(rule.allItems, item)
+		ruleCount += uint32(len(options.DomainRegex))
 	}
 	if len(options.SourceIPCIDR) > 0 {
 		item, err := NewIPCIDRItem(true, options.SourceIPCIDR)
@@ -78,10 +92,12 @@ func NewDefaultHeadlessRule(ctx context.Context, options option.DefaultHeadlessR
 		}
 		rule.sourceAddressItems = append(rule.sourceAddressItems, item)
 		rule.allItems = append(rule.allItems, item)
+		ruleCount += uint32(len(options.SourceIPCIDR))
 	} else if options.SourceIPSet != nil {
 		item := NewRawIPCIDRItem(true, options.SourceIPSet)
 		rule.sourceAddressItems = append(rule.sourceAddressItems, item)
 		rule.allItems = append(rule.allItems, item)
+		ruleCount += uint32(len(item.ipSet.Ranges()))
 	}
 	if len(options.IPCIDR) > 0 {
 		item, err := NewIPCIDRItem(false, options.IPCIDR)
@@ -90,15 +106,18 @@ func NewDefaultHeadlessRule(ctx context.Context, options option.DefaultHeadlessR
 		}
 		rule.destinationIPCIDRItems = append(rule.destinationIPCIDRItems, item)
 		rule.allItems = append(rule.allItems, item)
+		ruleCount += uint32(len(options.IPCIDR))
 	} else if options.IPSet != nil {
 		item := NewRawIPCIDRItem(false, options.IPSet)
 		rule.destinationIPCIDRItems = append(rule.destinationIPCIDRItems, item)
 		rule.allItems = append(rule.allItems, item)
+		ruleCount += uint32(len(item.ipSet.Ranges()))
 	}
 	if len(options.SourcePort) > 0 {
 		item := NewPortItem(true, options.SourcePort)
 		rule.sourcePortItems = append(rule.sourcePortItems, item)
 		rule.allItems = append(rule.allItems, item)
+		ruleCount += uint32(len(item.ports))
 	}
 	if len(options.SourcePortRange) > 0 {
 		item, err := NewPortRangeItem(true, options.SourcePortRange)
@@ -107,11 +126,13 @@ func NewDefaultHeadlessRule(ctx context.Context, options option.DefaultHeadlessR
 		}
 		rule.sourcePortItems = append(rule.sourcePortItems, item)
 		rule.allItems = append(rule.allItems, item)
+		ruleCount += uint32(len(item.portRanges))
 	}
 	if len(options.Port) > 0 {
 		item := NewPortItem(false, options.Port)
 		rule.destinationPortItems = append(rule.destinationPortItems, item)
 		rule.allItems = append(rule.allItems, item)
+		ruleCount += uint32(len(item.ports))
 	}
 	if len(options.PortRange) > 0 {
 		item, err := NewPortRangeItem(false, options.PortRange)
@@ -120,16 +141,19 @@ func NewDefaultHeadlessRule(ctx context.Context, options option.DefaultHeadlessR
 		}
 		rule.destinationPortItems = append(rule.destinationPortItems, item)
 		rule.allItems = append(rule.allItems, item)
+		ruleCount += uint32(len(item.portRanges))
 	}
 	if len(options.ProcessName) > 0 {
 		item := NewProcessItem(options.ProcessName)
 		rule.items = append(rule.items, item)
 		rule.allItems = append(rule.allItems, item)
+		ruleCount += uint32(len(item.processes))
 	}
 	if len(options.ProcessPath) > 0 {
 		item := NewProcessPathItem(options.ProcessPath)
 		rule.items = append(rule.items, item)
 		rule.allItems = append(rule.allItems, item)
+		ruleCount += uint32(len(item.processes))
 	}
 	if len(options.ProcessPathRegex) > 0 {
 		item, err := NewProcessPathRegexItem(options.ProcessPathRegex)
@@ -138,50 +162,58 @@ func NewDefaultHeadlessRule(ctx context.Context, options option.DefaultHeadlessR
 		}
 		rule.items = append(rule.items, item)
 		rule.allItems = append(rule.allItems, item)
+		ruleCount += uint32(len(options.ProcessPathRegex))
 	}
 	if len(options.PackageName) > 0 {
 		item := NewPackageNameItem(options.PackageName)
 		rule.items = append(rule.items, item)
 		rule.allItems = append(rule.allItems, item)
+		ruleCount += uint32(len(item.packageNames))
 	}
 	if networkManager != nil {
 		if len(options.NetworkType) > 0 {
 			item := NewNetworkTypeItem(networkManager, common.Map(options.NetworkType, option.InterfaceType.Build))
 			rule.items = append(rule.items, item)
 			rule.allItems = append(rule.allItems, item)
+			ruleCount += uint32(len(item.networkType))
 		}
 		if options.NetworkIsExpensive {
 			item := NewNetworkIsExpensiveItem(networkManager)
 			rule.items = append(rule.items, item)
 			rule.allItems = append(rule.allItems, item)
+			ruleCount += uint32(1)
 		}
 		if options.NetworkIsConstrained {
 			item := NewNetworkIsConstrainedItem(networkManager)
 			rule.items = append(rule.items, item)
 			rule.allItems = append(rule.allItems, item)
+			ruleCount += uint32(1)
 		}
 		if len(options.WIFISSID) > 0 {
 			item := NewWIFISSIDItem(networkManager, options.WIFISSID)
 			rule.items = append(rule.items, item)
 			rule.allItems = append(rule.allItems, item)
-
+			ruleCount += uint32(len(item.ssidList))
 		}
 		if len(options.WIFIBSSID) > 0 {
 			item := NewWIFIBSSIDItem(networkManager, options.WIFIBSSID)
 			rule.items = append(rule.items, item)
 			rule.allItems = append(rule.allItems, item)
-
+			ruleCount += uint32(len(item.bssidList))
 		}
 	}
 	if len(options.AdGuardDomain) > 0 {
 		item := NewAdGuardDomainItem(options.AdGuardDomain)
 		rule.destinationAddressItems = append(rule.destinationAddressItems, item)
 		rule.allItems = append(rule.allItems, item)
+		ruleCount += uint32(len(options.AdGuardDomain))
 	} else if options.AdGuardDomainMatcher != nil {
 		item := NewRawAdGuardDomainItem(options.AdGuardDomainMatcher)
 		rule.destinationAddressItems = append(rule.destinationAddressItems, item)
 		rule.allItems = append(rule.allItems, item)
+		ruleCount += uint32(len(item.matcher.Dump()))
 	}
+	rule.ruleCount = ruleCount
 	return rule, nil
 }
 
@@ -194,8 +226,9 @@ type LogicalHeadlessRule struct {
 func NewLogicalHeadlessRule(ctx context.Context, options option.LogicalHeadlessRule) (*LogicalHeadlessRule, error) {
 	r := &LogicalHeadlessRule{
 		abstractLogicalRule{
-			rules:  make([]adapter.HeadlessRule, len(options.Rules)),
-			invert: options.Invert,
+			rules:     make([]adapter.HeadlessRule, len(options.Rules)),
+			ruleCount: uint32(len(options.Rules)),
+			invert:    options.Invert,
 		},
 	}
 	switch options.Mode {

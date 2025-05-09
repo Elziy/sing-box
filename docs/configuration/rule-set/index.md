@@ -100,6 +100,12 @@ File path of rule-set.
 
 ### Remote Fields
 
+#### path
+
+Download path of rule-set for cache.
+
+Cache will disable if empty.
+
 #### url
 
 ==Required==
