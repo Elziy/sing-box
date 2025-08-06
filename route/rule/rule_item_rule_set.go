@@ -67,3 +67,14 @@ func (r *RuleSetItem) String() string {
 		return F.ToString("rule_set=[", strings.Join(r.tagList, " "), "]")
 	}
 }
+
+func (r *RuleSetItem) RuleCount() uint32 {
+	if len(r.setList) > 0 {
+		var count uint32 = 0
+		for _, ruleSet := range r.setList {
+			count += ruleSet.RuleCount()
+		}
+		return count
+	}
+	return uint32(len(r.tagList))
+}

@@ -1,10 +1,6 @@
 package option
 
 import (
-	"net/url"
-	"path/filepath"
-	"reflect"
-
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing/common"
 	"github.com/sagernet/sing/common/domain"
@@ -13,6 +9,10 @@ import (
 	"github.com/sagernet/sing/common/json"
 	"github.com/sagernet/sing/common/json/badjson"
 	"github.com/sagernet/sing/common/json/badoption"
+	"net/url"
+	"path/filepath"
+	"reflect"
+	"strings"
 
 	"go4.org/netipx"
 )
@@ -21,8 +21,8 @@ type _RuleSet struct {
 	Type          string        `json:"type,omitempty"`
 	Tag           string        `json:"tag"`
 	Format        string        `json:"format,omitempty"`
+	Path          string        `json:"path,omitempty"`
 	InlineOptions PlainRuleSet  `json:"-"`
-	LocalOptions  LocalRuleSet  `json:"-"`
 	RemoteOptions RemoteRuleSet `json:"-"`
 }
 
@@ -33,7 +33,7 @@ func (r RuleSet) MarshalJSON() ([]byte, error) {
 		var defaultFormat string
 		switch r.Type {
 		case C.RuleSetTypeLocal:
-			defaultFormat = ruleSetDefaultFormat(r.LocalOptions.Path)
+			defaultFormat = ruleSetDefaultFormat(r.Path)
 		case C.RuleSetTypeRemote:
 			defaultFormat = ruleSetDefaultFormat(r.RemoteOptions.URL)
 		}
@@ -47,7 +47,7 @@ func (r RuleSet) MarshalJSON() ([]byte, error) {
 		r.Type = ""
 		v = r.InlineOptions
 	case C.RuleSetTypeLocal:
-		v = r.LocalOptions
+		v = nil
 	case C.RuleSetTypeRemote:
 		v = r.RemoteOptions
 	default:
@@ -70,7 +70,10 @@ func (r *RuleSet) UnmarshalJSON(bytes []byte) error {
 		r.Type = C.RuleSetTypeInline
 		v = &r.InlineOptions
 	case C.RuleSetTypeLocal:
-		v = &r.LocalOptions
+		if r.Path == "" {
+			return E.New("missing path")
+		}
+		v = nil
 	case C.RuleSetTypeRemote:
 		v = &r.RemoteOptions
 	default:
@@ -80,11 +83,15 @@ func (r *RuleSet) UnmarshalJSON(bytes []byte) error {
 	if err != nil {
 		return err
 	}
+	//if r.Type == C.RuleSetTypeRemote && r.Path == "" {
+	//	r.Path = path.Join(C.RuleSetDefaultPath, path.Base(r.RemoteOptions.URL))
+	//}
+	r.Path = strings.TrimPrefix(r.Path, "/")
 	if r.Type != C.RuleSetTypeInline {
 		if r.Format == "" {
 			switch r.Type {
 			case C.RuleSetTypeLocal:
-				r.Format = ruleSetDefaultFormat(r.LocalOptions.Path)
+				r.Format = ruleSetDefaultFormat(r.Path)
 			case C.RuleSetTypeRemote:
 				r.Format = ruleSetDefaultFormat(r.RemoteOptions.URL)
 			}
@@ -97,7 +104,8 @@ func (r *RuleSet) UnmarshalJSON(bytes []byte) error {
 			return E.New("unknown rule-set format: " + r.Format)
 		}
 	} else {
-		r.Format = ""
+		r.Format = C.RuleSetFormatSource
+		r.Path = ""
 	}
 	return nil
 }
@@ -114,10 +122,6 @@ func ruleSetDefaultFormat(path string) string {
 	default:
 		return ""
 	}
-}
-
-type LocalRuleSet struct {
-	Path string `json:"path,omitempty"`
 }
 
 type RemoteRuleSet struct {
