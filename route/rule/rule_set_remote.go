@@ -4,9 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"github.com/sagernet/sing-box/log"
-	"github.com/sagernet/sing/common/rw"
-	"github.com/sagernet/sing/service/filemanager"
 	"io"
 	"net"
 	"net/http"
@@ -15,14 +12,18 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
+
+	"github.com/sagernet/sing-box/log"
+	"github.com/sagernet/sing/common/rw"
+	"github.com/sagernet/sing/service/filemanager"
 
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/common/srs"
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/option"
 	"github.com/sagernet/sing/common"
-	"github.com/sagernet/sing/common/atomic"
 	E "github.com/sagernet/sing/common/exceptions"
 	F "github.com/sagernet/sing/common/format"
 	"github.com/sagernet/sing/common/json"
@@ -45,16 +46,16 @@ type RemoteRuleSet struct {
 	logger         logger.ContextLogger
 	outbound       adapter.OutboundManager
 	options        option.RuleSet
-	metadata       adapter.RuleSetMetadata
 	updateInterval time.Duration
 	dialer         N.Dialer
+	access         sync.RWMutex
 	rules          []adapter.HeadlessRule
 	ruleCount      uint32
+	metadata       adapter.RuleSetMetadata
 	lastUpdated    time.Time
 	lastEtag       string
 	updateTicker   *time.Ticker
 	pauseManager   pause.Manager
-	callbackAccess sync.Mutex
 	callbacks      list.List[adapter.RuleSetUpdateCallback]
 	refs           atomic.Int32
 }
@@ -205,10 +206,14 @@ func (s *RemoteRuleSet) PostStart() error {
 }
 
 func (s *RemoteRuleSet) Metadata() adapter.RuleSetMetadata {
+	s.access.RLock()
+	defer s.access.RUnlock()
 	return s.metadata
 }
 
 func (s *RemoteRuleSet) ExtractIPSet() []*netipx.IPSet {
+	s.access.RLock()
+	defer s.access.RUnlock()
 	return common.FlatMap(s.rules, extractIPSetFromRule)
 }
 
@@ -229,14 +234,14 @@ func (s *RemoteRuleSet) Cleanup() {
 }
 
 func (s *RemoteRuleSet) RegisterCallback(callback adapter.RuleSetUpdateCallback) *list.Element[adapter.RuleSetUpdateCallback] {
-	s.callbackAccess.Lock()
-	defer s.callbackAccess.Unlock()
+	s.access.Lock()
+	defer s.access.Unlock()
 	return s.callbacks.PushBack(callback)
 }
 
 func (s *RemoteRuleSet) UnregisterCallback(element *list.Element[adapter.RuleSetUpdateCallback]) {
-	s.callbackAccess.Lock()
-	defer s.callbackAccess.Unlock()
+	s.access.Lock()
+	defer s.access.Unlock()
 	s.callbacks.Remove(element)
 }
 

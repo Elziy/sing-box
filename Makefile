@@ -17,6 +17,10 @@ build:
 	export GOTOOLCHAIN=local && \
 	go build $(MAIN_PARAMS) $(MAIN)
 
+race:
+	export GOTOOLCHAIN=local && \
+	go build -race $(MAIN_PARAMS) $(MAIN)
+
 ci_build:
 	export GOTOOLCHAIN=local && \
 	go build $(PARAMS) $(MAIN) && \
@@ -34,7 +38,7 @@ fmt:
 	@gci write --custom-order -s standard -s "prefix(github.com/sagernet/)" -s "default" .
 
 fmt_install:
-	go install -v mvdan.cc/gofumpt@latest
+	go install -v mvdan.cc/gofumpt@v0.8.0
 	go install -v github.com/daixiang0/gci@latest
 
 lint:
@@ -45,7 +49,7 @@ lint:
 	GOOS=freebsd golangci-lint run ./...
 
 lint_install:
-	go install -v github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	go install -v github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.4.0
 
 proto:
 	@go run ./cmd/internal/protogen
@@ -245,8 +249,8 @@ lib:
 	go run ./cmd/internal/build_libbox -target ios
 
 lib_install:
-	go install -v github.com/sagernet/gomobile/cmd/gomobile@v0.1.7
-	go install -v github.com/sagernet/gomobile/cmd/gobind@v0.1.7
+	go install -v github.com/sagernet/gomobile/cmd/gomobile@v0.1.8
+	go install -v github.com/sagernet/gomobile/cmd/gobind@v0.1.8
 
 docs:
 	venv/bin/mkdocs serve
