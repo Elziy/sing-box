@@ -1,6 +1,10 @@
 package option
 
-import "github.com/sagernet/sing/common/json/badoption"
+import (
+	"fmt"
+
+	"github.com/sagernet/sing/common/json/badoption"
+)
 
 type InboundTLSOptions struct {
 	Enabled         bool                       `json:"enabled,omitempty"`
@@ -53,6 +57,77 @@ type OutboundTLSOptions struct {
 	ECH                   *OutboundECHOptions        `json:"ech,omitempty"`
 	UTLS                  *OutboundUTLSOptions       `json:"utls,omitempty"`
 	Reality               *OutboundRealityOptions    `json:"reality,omitempty"`
+}
+
+func NewOutboundTLSOptions(config map[string]any) *OutboundTLSOptions {
+	options := OutboundTLSOptions{
+		ECH:     &OutboundECHOptions{},
+		UTLS:    &OutboundUTLSOptions{},
+		Reality: &OutboundRealityOptions{},
+	}
+	if tls, exists := config["tls"].(bool); exists && tls {
+		options.Enabled = true
+	}
+	if insecure, exists := config["insecure"].(bool); exists {
+		options.Enabled = true
+		options.Insecure = insecure
+	}
+	if insecure, exists := config["skip-cert-verify"].(bool); exists {
+		options.Enabled = true
+		options.Insecure = insecure
+	}
+	if sni, exists := config["sni"].(string); exists {
+		options.ServerName = sni
+	}
+	if peer, exists := config["peer"].(string); exists {
+		options.ServerName = peer
+	}
+	if servername, exists := config["servername"].(string); exists {
+		options.ServerName = servername
+	}
+	if disableSNI, exists := config["disable-sni"].(bool); exists {
+		options.DisableSNI = disableSNI
+	}
+	if alpn, exists := config["alpn"].([]any); exists {
+		var alpnArr []string
+		for _, item := range alpn {
+			alpnArr = append(alpnArr, fmt.Sprint(item))
+		}
+		options.ALPN = alpnArr
+	}
+	if fingerprint, exists := config["client-fingerprint"].(string); exists {
+		options.Enabled = true
+		options.UTLS.Enabled = true
+		options.UTLS.Fingerprint = fingerprint
+	}
+	if reality, exists := config["reality-opts"].(map[string]any); exists {
+		options.Enabled = true
+		options.Reality.Enabled = true
+		if pbk, exists := reality["public-key"].(string); exists {
+			options.Reality.PublicKey = pbk
+		}
+		if sid, exists := reality["short-id"].(string); exists {
+			options.Reality.ShortID = sid
+		}
+	}
+	if ca, exists := config["ca"]; exists {
+		options.CertificatePath = fmt.Sprint(ca)
+	}
+	if caStr, exists := config["ca-str"].([]any); exists {
+		var caStrArr []string
+		for _, item := range caStr {
+			caStrArr = append(caStrArr, fmt.Sprint(item))
+		}
+		options.Certificate = caStrArr
+	}
+	if caStr, exists := config["ca_str"].([]any); exists {
+		var caStrArr []string
+		for _, item := range caStr {
+			caStrArr = append(caStrArr, fmt.Sprint(item))
+		}
+		options.Certificate = caStrArr
+	}
+	return &options
 }
 
 type OutboundTLSOptionsContainer struct {

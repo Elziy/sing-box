@@ -71,6 +71,7 @@ func (s *CommandServer) handleGroupConn(conn net.Conn) error {
 type OutboundGroup struct {
 	Tag        string
 	Type       string
+	Icon       string
 	Selectable bool
 	Selected   string
 	IsExpand   bool
@@ -121,6 +122,7 @@ func writeGroups(writer io.Writer, boxService *BoxService) error {
 		var outboundGroup OutboundGroup
 		outboundGroup.Tag = iGroup.Tag()
 		outboundGroup.Type = iGroup.Type()
+		outboundGroup.Icon = iGroup.Icon()
 		_, outboundGroup.Selectable = iGroup.(*group.Selector)
 		outboundGroup.Selected = iGroup.Now()
 		if cacheFile != nil {
