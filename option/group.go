@@ -2,17 +2,31 @@ package option
 
 import "github.com/sagernet/sing/common/json/badoption"
 
+type FilterOptions struct {
+	Includes badoption.Listable[string] `json:"includes,omitempty"`
+	Excludes badoption.Listable[string] `json:"excludes,omitempty"`
+	Types    badoption.Listable[string] `json:"types,omitempty"`
+	Ports    badoption.Listable[string] `json:"ports,omitempty"`
+}
+
+type GroupOutboundOptions struct {
+	FilterOptions
+	Icon                      string                     `json:"icon,omitempty"`
+	Outbounds                 badoption.Listable[string] `json:"outbounds,omitempty"`
+	Providers                 badoption.Listable[string] `json:"providers,omitempty"`
+	UseAllProviders           bool                       `json:"use_all_providers,omitempty"`
+	InterruptExistConnections bool                       `json:"interrupt_exist_connections,omitempty"`
+}
+
 type SelectorOutboundOptions struct {
-	Outbounds                 []string `json:"outbounds"`
-	Default                   string   `json:"default,omitempty"`
-	InterruptExistConnections bool     `json:"interrupt_exist_connections,omitempty"`
+	GroupOutboundOptions
+	Default string `json:"default,omitempty"`
 }
 
 type URLTestOutboundOptions struct {
-	Outbounds                 []string           `json:"outbounds"`
-	URL                       string             `json:"url,omitempty"`
-	Interval                  badoption.Duration `json:"interval,omitempty"`
-	Tolerance                 uint16             `json:"tolerance,omitempty"`
-	IdleTimeout               badoption.Duration `json:"idle_timeout,omitempty"`
-	InterruptExistConnections bool               `json:"interrupt_exist_connections,omitempty"`
+	GroupOutboundOptions
+	URL         string             `json:"url,omitempty"`
+	Interval    badoption.Duration `json:"interval,omitempty"`
+	Tolerance   uint16             `json:"tolerance,omitempty"`
+	IdleTimeout badoption.Duration `json:"idle_timeout,omitempty"`
 }

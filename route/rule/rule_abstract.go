@@ -18,13 +18,21 @@ type abstractDefaultRule struct {
 	destinationIPCIDRItems  []RuleItem
 	destinationPortItems    []RuleItem
 	allItems                []RuleItem
-	ruleSetItem             RuleItem
+	ruleSetItem             *RuleSetItem
+	ruleCount               uint32
 	invert                  bool
 	action                  adapter.RuleAction
 }
 
 func (r *abstractDefaultRule) Type() string {
 	return C.RuleTypeDefault
+}
+
+func (r *abstractDefaultRule) RuleCount() uint32 {
+	if r.ruleSetItem != nil {
+		return r.ruleCount + r.ruleSetItem.RuleCount()
+	}
+	return r.ruleCount
 }
 
 func (r *abstractDefaultRule) Start() error {
@@ -151,14 +159,19 @@ func (r *abstractDefaultRule) String() string {
 }
 
 type abstractLogicalRule struct {
-	rules  []adapter.HeadlessRule
-	mode   string
-	invert bool
-	action adapter.RuleAction
+	rules     []adapter.HeadlessRule
+	ruleCount uint32
+	mode      string
+	invert    bool
+	action    adapter.RuleAction
 }
 
 func (r *abstractLogicalRule) Type() string {
 	return C.RuleTypeLogical
+}
+
+func (r *abstractLogicalRule) RuleCount() uint32 {
+	return r.ruleCount
 }
 
 func (r *abstractLogicalRule) Start() error {

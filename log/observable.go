@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/sagernet/sing/common"
@@ -44,7 +45,7 @@ func NewDefaultFactory(
 			DisableLineBreak: true,
 		},
 		writer:         writer,
-		filePath:       filePath,
+		filePath:       filemanager.BasePath(ctx, filePath),
 		platformWriter: platformWriter,
 		needObservable: needObservable,
 		level:          LevelTrace,
@@ -61,6 +62,12 @@ func NewDefaultFactory(
 
 func (f *defaultFactory) Start() error {
 	if f.filePath != "" {
+		dir := filepath.Dir(f.filePath)
+		if _, err := os.ReadDir(dir); err != nil {
+			if err := os.MkdirAll(dir, 0o755); err != nil {
+				return err
+			}
+		}
 		logFile, err := filemanager.OpenFile(f.ctx, f.filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 		if err != nil {
 			return err

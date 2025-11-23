@@ -2,6 +2,7 @@ package option
 
 import (
 	"context"
+	"runtime"
 
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/experimental/deprecated"
@@ -97,6 +98,44 @@ type _DomainResolveOptions struct {
 }
 
 type DomainResolveOptions _DomainResolveOptions
+
+func NewDialerOption(config map[string]any) DialerOptions {
+	options := DialerOptions{}
+	if tfo, exists := config["tcp-fast-open"].(bool); exists && tfo {
+		options.TCPFastOpen = true
+	}
+	if tfo, exists := config["tfo"].(bool); exists && tfo {
+		options.TCPFastOpen = true
+	}
+	if name, exists := config["interface-name"].(string); exists {
+		options.BindInterface = name
+	}
+	if mark, exists := config["routing-mark"].(uint32); exists {
+		if runtime.GOOS == "android" || runtime.GOOS == "linux" {
+			options.RoutingMark = FwMark(mark)
+		}
+	}
+	if detour, exists := config["dialer-config"].(string); exists {
+		options.Detour = detour
+	}
+	if version, exists := config["ip-version"].(string); exists {
+		var strategy DomainStrategy
+		switch version {
+		case "dual":
+			_ = strategy.UnmarshalJSON([]byte(""))
+		case "ipv4":
+			_ = strategy.UnmarshalJSON([]byte("ipv4_only"))
+		case "ipv6":
+			_ = strategy.UnmarshalJSON([]byte("ipv6_only"))
+		case "ipv4-prefer":
+			_ = strategy.UnmarshalJSON([]byte("prefer_ipv4"))
+		case "ipv6-prefer":
+			_ = strategy.UnmarshalJSON([]byte("prefer_ipv6"))
+		}
+		options.DomainStrategy = strategy
+	}
+	return options
+}
 
 func (o DomainResolveOptions) MarshalJSON() ([]byte, error) {
 	if o.Server == "" {

@@ -107,7 +107,9 @@ func (s *SavedBinary) UnmarshalBinary(data []byte) error {
 
 type OutboundGroup interface {
 	Outbound
+	Selected() Outbound
 	Now() string
+	Icon() string
 	All() []string
 }
 
