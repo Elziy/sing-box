@@ -187,9 +187,9 @@ func (s *RemoteRuleSet) reloadRules(headlessRules []option.HeadlessRule) error {
 		ruleCount += rules[i].RuleCount()
 	}
 	s.access.Lock()
-	s.metadata.ContainsProcessRule = hasHeadlessRule(headlessRules, isProcessHeadlessRule)
-	s.metadata.ContainsWIFIRule = hasHeadlessRule(headlessRules, isWIFIHeadlessRule)
-	s.metadata.ContainsIPCIDRRule = hasHeadlessRule(headlessRules, isIPCIDRHeadlessRule)
+	s.metadata.ContainsProcessRule = HasHeadlessRule(headlessRules, isProcessHeadlessRule)
+	s.metadata.ContainsWIFIRule = HasHeadlessRule(headlessRules, isWIFIHeadlessRule)
+	s.metadata.ContainsIPCIDRRule = HasHeadlessRule(headlessRules, isIPCIDRHeadlessRule)
 	s.rules = rules
 	s.ruleCount = ruleCount
 	callbacks := s.callbacks.Array()

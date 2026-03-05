@@ -201,6 +201,18 @@ func NewDefaultHeadlessRule(ctx context.Context, options option.DefaultHeadlessR
 			rule.allItems = append(rule.allItems, item)
 			ruleCount += uint32(len(item.bssidList))
 		}
+		if options.NetworkInterfaceAddress != nil && options.NetworkInterfaceAddress.Size() > 0 {
+			item := NewNetworkInterfaceAddressItem(networkManager, options.NetworkInterfaceAddress)
+			rule.items = append(rule.items, item)
+			rule.allItems = append(rule.allItems, item)
+			ruleCount += uint32(len(item.interfaceAddresses))
+		}
+		if len(options.DefaultInterfaceAddress) > 0 {
+			item := NewDefaultInterfaceAddressItem(networkManager, options.DefaultInterfaceAddress)
+			rule.items = append(rule.items, item)
+			rule.allItems = append(rule.allItems, item)
+			ruleCount += uint32(len(item.interfaceAddresses))
+		}
 	}
 	if len(options.AdGuardDomain) > 0 {
 		item := NewAdGuardDomainItem(options.AdGuardDomain)
