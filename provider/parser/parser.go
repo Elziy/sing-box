@@ -16,7 +16,6 @@ import (
 	"github.com/sagernet/sing-box/protocol/tuic"
 	"github.com/sagernet/sing-box/protocol/vless"
 	"github.com/sagernet/sing-box/protocol/vmess"
-	"github.com/sagernet/sing-box/protocol/wireguard"
 	"github.com/sagernet/sing/common/json"
 	"gopkg.in/yaml.v3"
 
@@ -85,8 +84,6 @@ func NewClashParser(content string) ([]option.Outbound, error) {
 			outbound, err = tuic.NewTUICOutboundOption(proxy)
 		case "socks5":
 			outbound, err = socks.NewSOCKSOutboundOption(proxy)
-		case "wireguard":
-			outbound, err = wireguard.NewWireGuardOutboundOption(proxy)
 		case "anytls":
 			outbound, err = anytls.NewAnyTLSOutboundOption(proxy)
 		case "ssh":
@@ -133,8 +130,6 @@ func NewNativeURLParser(content string) ([]option.Outbound, error) {
 			outbound, err = tuic.NewTUICNativeOutboundOption(raw)
 		case "socks", "socks5", "socks4", "socks4a":
 			outbound, err = socks.NewSOCKSNativeOutboundOption(raw)
-		case "wireguard", "wg":
-			outbound, err = wireguard.NewWireGuardNativeOutboundOption(raw)
 		case "anytls":
 			outbound, err = anytls.NewAnyTLSNativeOutboundOption(raw)
 		case "ssh":
