@@ -3,11 +3,15 @@ package clashapi
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"errors"
+	"io"
+	L "log"
 	"net"
 	"net/http"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -49,6 +53,7 @@ type Server struct {
 	endpoint       adapter.EndpointManager
 	logger         log.Logger
 	httpServer     *http.Server
+	httpsServer    *http.Server
 	trafficManager *trafficontrol.Manager
 	urlTestHistory adapter.URLTestHistoryStorage
 	logDebug       bool
@@ -84,6 +89,51 @@ func NewServer(ctx context.Context, logFactory log.ObservableFactory, options op
 		externalController:       options.ExternalController != "",
 		externalUIDownloadURL:    options.ExternalUIDownloadURL,
 		externalUIDownloadDetour: options.ExternalUIDownloadDetour,
+	}
+	if options.CertificatePath != "" &&
+		options.KeyPath != "" &&
+		options.ExternalTLSController != "" {
+		cert, err := tls.LoadX509KeyPair(
+			filemanager.BasePath(ctx, options.CertificatePath),
+			filemanager.BasePath(ctx, options.KeyPath),
+		)
+		if err != nil {
+			return nil, E.Cause(err, "load external controller certificate")
+		}
+		s.httpsServer = &http.Server{
+			Addr:     options.ExternalTLSController,
+			Handler:  chiRouter,
+			ErrorLog: L.New(io.Discard, "", 0),
+			TLSConfig: &tls.Config{
+				Certificates: []tls.Certificate{cert},
+				MinVersion:   tls.VersionTLS12,
+			},
+		}
+		if s.externalController {
+			s.httpServer = &http.Server{
+				Addr: options.ExternalController,
+				Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					parts := strings.Split(options.ExternalTLSController, ":")
+					var tlsPort string
+					if len(parts) == 2 {
+						if _, err = strconv.Atoi(parts[1]); err == nil {
+							tlsPort = parts[1]
+						}
+					} else {
+						tlsPort = "443"
+					}
+					target := "https://" + strings.Split(r.Host, ":")[0] + ":" + tlsPort + r.URL.RequestURI()
+					http.Redirect(w, r, target, http.StatusMovedPermanently)
+				}),
+				ErrorLog: L.New(io.Discard, "", 0),
+			}
+		}
+	} else {
+		s.httpServer = &http.Server{
+			Addr:     options.ExternalController,
+			Handler:  chiRouter,
+			ErrorLog: L.New(io.Discard, "", 0),
+		}
 	}
 	s.urlTestHistory = service.FromContext[adapter.URLTestHistoryStorage](ctx)
 	if s.urlTestHistory == nil {
@@ -160,8 +210,8 @@ func (s *Server) Start(stage adapter.StartStage) error {
 			}
 		}
 	case adapter.StartStateStarted:
-		if s.externalController {
-			s.checkAndDownloadExternalUI()
+		if s.httpServer != nil {
+			go s.checkAndDownloadExternalUI()
 			var (
 				listener net.Listener
 				err      error
@@ -175,13 +225,38 @@ func (s *Server) Start(stage adapter.StartStage) error {
 				break
 			}
 			if err != nil {
-				return E.Cause(err, "external controller listen error")
+				return E.Cause(err, "external http controller listen error")
 			}
-			s.logger.Info("restful api listening at ", listener.Addr())
+			s.logger.Info("http restful api listening at ", listener.Addr())
 			go func() {
 				err = s.httpServer.Serve(listener)
 				if err != nil && !errors.Is(err, http.ErrServerClosed) {
-					s.logger.Error("external controller serve error: ", err)
+					s.logger.Error("external http controller serve error: ", err)
+				}
+			}()
+		}
+
+		if s.httpsServer != nil {
+			var (
+				listener net.Listener
+				err      error
+			)
+			for i := 0; i < 3; i++ {
+				listener, err = net.Listen("tcp", s.httpsServer.Addr)
+				if runtime.GOOS == "android" && errors.Is(err, syscall.EADDRINUSE) {
+					time.Sleep(100 * time.Millisecond)
+					continue
+				}
+				break
+			}
+			if err != nil {
+				return E.Cause(err, "external https controller listen error")
+			}
+			s.logger.Info("https restful api listening at ", listener.Addr())
+			go func() {
+				err = s.httpsServer.ServeTLS(listener, "", "")
+				if err != nil && !errors.Is(err, http.ErrServerClosed) {
+					s.logger.Error("external https controller serve error: ", err)
 				}
 			}()
 		}
