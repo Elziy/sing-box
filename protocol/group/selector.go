@@ -123,7 +123,7 @@ func (s *Selector) SelectOutbound(tag string) bool {
 		return false
 	}
 	if s.selected.Swap(detour) == detour {
-		return true
+		return false
 	}
 	if s.Tag() != "" {
 		cacheFile := service.FromContext[adapter.CacheFile](s.GetContext())
@@ -134,7 +134,7 @@ func (s *Selector) SelectOutbound(tag string) bool {
 			}
 		}
 	}
-	s.InterruptConnections()
+	s.InterruptConnections(s.Tag(), s.Now())
 	return true
 }
 
@@ -143,7 +143,7 @@ func (s *Selector) DialContext(ctx context.Context, network string, destination 
 	if err != nil {
 		return nil, err
 	}
-	return s.GetInterruptGroup().NewConn(conn, interrupt.IsExternalConnectionFromContext(ctx)), nil
+	return conn, nil
 }
 
 func (s *Selector) ListenPacket(ctx context.Context, destination M.Socksaddr) (net.PacketConn, error) {
@@ -151,7 +151,7 @@ func (s *Selector) ListenPacket(ctx context.Context, destination M.Socksaddr) (n
 	if err != nil {
 		return nil, err
 	}
-	return s.GetInterruptGroup().NewPacketConn(conn, interrupt.IsExternalConnectionFromContext(ctx)), nil
+	return conn, nil
 }
 
 func (s *Selector) NewConnectionEx(ctx context.Context, conn net.Conn, metadata adapter.InboundContext, onClose N.CloseHandlerFunc) {
@@ -199,7 +199,9 @@ func (s *Selector) onProviderUpdated(tag string) error {
 			}
 			detour, _ := s.outboundSelect()
 			if s.selected.Swap(detour) != detour {
-				s.InterruptConnections()
+				if s.selected.Swap(detour) != detour {
+					s.InterruptConnections(s.Tag(), s.Now())
+				}
 			}
 			s.SetUpdating(false)
 		}()

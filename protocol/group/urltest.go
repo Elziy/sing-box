@@ -14,7 +14,6 @@ import (
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing-box/option"
-	"github.com/sagernet/sing-tun"
 	"github.com/sagernet/sing/common"
 	"github.com/sagernet/sing/common/batch"
 	E "github.com/sagernet/sing/common/exceptions"
@@ -167,7 +166,7 @@ func (s *URLTest) DialContext(ctx context.Context, network string, destination M
 	}
 	conn, err := out.DialContext(ctx, network, destination)
 	if err == nil {
-		return s.group.interruptGroup.NewConn(conn, interrupt.IsExternalConnectionFromContext(ctx)), nil
+		return conn, nil
 	}
 	s.GetLogger().ErrorContext(ctx, err)
 	s.group.history.DeleteURLTestHistory(out.Tag())
@@ -185,7 +184,7 @@ func (s *URLTest) ListenPacket(ctx context.Context, destination M.Socksaddr) (ne
 	}
 	conn, err := out.ListenPacket(ctx, destination)
 	if err == nil {
-		return s.group.interruptGroup.NewPacketConn(conn, interrupt.IsExternalConnectionFromContext(ctx)), nil
+		return conn, nil
 	}
 	s.GetLogger().ErrorContext(ctx, err)
 	s.group.history.DeleteURLTestHistory(out.Tag())
@@ -234,21 +233,6 @@ func (s *URLTest) onProviderUpdated(tag string) error {
 	return nil
 }
 
-func (s *URLTest) NewDirectRouteConnection(metadata adapter.InboundContext, routeContext tun.DirectRouteContext, timeout time.Duration) (tun.DirectRouteDestination, error) {
-	s.group.Touch()
-	selected := s.group.selectedOutboundTCP
-	if selected == nil {
-		selected, _ = s.group.Select(N.NetworkTCP)
-	}
-	if selected == nil {
-		return nil, E.New("missing supported outbound")
-	}
-	if !common.Contains(selected.Network(), metadata.Network) {
-		return nil, E.New(metadata.Network, " is not supported by outbound: ", selected.Tag())
-	}
-	return selected.(adapter.DirectRouteOutbound).NewDirectRouteConnection(metadata, routeContext, timeout)
-}
-
 type URLTestGroup struct {
 	ctx                          context.Context
 	router                       adapter.Router
@@ -265,7 +249,6 @@ type URLTestGroup struct {
 	checking                     atomic.Bool
 	selectedOutboundTCP          adapter.Outbound
 	selectedOutboundUDP          adapter.Outbound
-	interruptGroup               *interrupt.Group
 	interruptExternalConnections bool
 	access                       sync.Mutex
 	ticker                       *time.Ticker
@@ -296,18 +279,18 @@ func NewURLTestGroup(ctx context.Context, outboundManager adapter.OutboundManage
 		history = urltest.NewHistoryStorage()
 	}
 	return &URLTestGroup{
-		ctx:                          ctx,
-		outbound:                     outboundManager,
-		logger:                       logger,
-		outbounds:                    outbounds,
-		link:                         link,
-		interval:                     interval,
-		tolerance:                    tolerance,
-		idleTimeout:                  idleTimeout,
-		history:                      history,
-		close:                        make(chan struct{}),
-		pause:                        service.FromContext[pause.Manager](ctx),
-		interruptGroup:               interrupt.NewGroup(),
+		ctx:         ctx,
+		outbound:    outboundManager,
+		logger:      logger,
+		outbounds:   outbounds,
+		link:        link,
+		interval:    interval,
+		tolerance:   tolerance,
+		idleTimeout: idleTimeout,
+		history:     history,
+		close:       make(chan struct{}),
+		pause:       service.FromContext[pause.Manager](ctx),
+		//interruptGroup:               interrupt.NewGroup(),
 		interruptExternalConnections: interruptExternalConnections,
 	}, nil
 }
@@ -491,6 +474,6 @@ func (g *URLTestGroup) performUpdateCheck() {
 		g.selectedOutboundUDP = out
 	}
 	if updated {
-		g.interruptGroup.Interrupt(g.interruptExternalConnections)
+		// TODO interrupt connections if needed
 	}
 }

@@ -6,8 +6,8 @@ import (
 
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/adapter/outbound"
-	"github.com/sagernet/sing-box/common/interrupt"
 	C "github.com/sagernet/sing-box/constant"
+	"github.com/sagernet/sing-box/experimental/clashapi/trafficontrol"
 	"github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing/common"
 	"github.com/sagernet/sing/common/atomic"
@@ -27,7 +27,7 @@ type Adapter struct {
 	outbounds                    map[string]adapter.Outbound
 	outboundsCache               map[string][]adapter.Outbound
 	providers                    map[string]adapter.Provider
-	interruptGroup               *interrupt.Group
+	trafficManager               *trafficontrol.Manager
 	interruptExternalConnections bool
 	updating                     atomic.Bool
 
@@ -87,7 +87,6 @@ func NewAdapter(
 		outbounds:                    make(map[string]adapter.Outbound),
 		outboundsCache:               make(map[string][]adapter.Outbound),
 		providers:                    make(map[string]adapter.Provider),
-		interruptGroup:               interrupt.NewGroup(),
 		interruptExternalConnections: interruptExternalConnections,
 		providerTags:                 providerTags,
 		includes:                     includesRegex,
@@ -201,8 +200,13 @@ func (a *Adapter) FilterOutbounds(updatedTag string) ([]string, map[string]adapt
 	return tags, outboundByTag, outbounds, nil
 }
 
-func (a *Adapter) InterruptConnections() {
-	a.interruptGroup.Interrupt(a.interruptExternalConnections)
+func (a *Adapter) InterruptConnections(tag string, now string) {
+	if a.trafficManager == nil {
+		a.trafficManager = service.FromContext[*trafficontrol.Manager](a.ctx)
+	}
+	if a.interruptExternalConnections && a.trafficManager != nil {
+		a.trafficManager.InterruptExistConnections(tag, now)
+	}
 }
 
 func (a *Adapter) IsUpdating() bool {
@@ -239,10 +243,6 @@ func (a *Adapter) GetLogger() log.ContextLogger {
 
 func (a *Adapter) GetContext() context.Context {
 	return a.ctx
-}
-
-func (a *Adapter) GetInterruptGroup() *interrupt.Group {
-	return a.interruptGroup
 }
 
 func (a *Adapter) GetConnectionManager() adapter.ConnectionManager {

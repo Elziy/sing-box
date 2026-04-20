@@ -150,6 +150,20 @@ func (m *Manager) Connection(id uuid.UUID) Tracker {
 	return connection
 }
 
+func (m *Manager) InterruptExistConnections(groupTag string, nowOutboundTag string) {
+	m.connections.Range(func(_ uuid.UUID, value Tracker) bool {
+		for _, c := range value.Metadata().Chain {
+			if c == groupTag {
+				if value.Metadata().Chain[0] != nowOutboundTag {
+					_ = value.Close()
+				}
+				return true
+			}
+		}
+		return true
+	})
+}
+
 func (m *Manager) Snapshot() *Snapshot {
 	var connections []Tracker
 	m.connections.Range(func(_ uuid.UUID, value Tracker) bool {
