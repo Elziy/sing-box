@@ -290,8 +290,7 @@ func (r *DefaultDNSRule) WithAddressLimit() bool {
 		return true
 	}
 	if r.ruleSetItem != nil {
-		ruleSet, isRuleSet := r.ruleSetItem.(*RuleSetItem)
-		if isRuleSet && ruleSet.ContainsDestinationIPCIDRRule() {
+		if r.ruleSetItem.ContainsDestinationIPCIDRRule() {
 			return true
 		}
 	}
