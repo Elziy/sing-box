@@ -20,7 +20,6 @@ import (
 	"github.com/sagernet/sing-box/common/tls"
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/dns"
-	"github.com/sagernet/sing-box/dns/transport/local"
 	"github.com/sagernet/sing-box/experimental"
 	"github.com/sagernet/sing-box/experimental/cachefile"
 	"github.com/sagernet/sing-box/log"
@@ -363,11 +362,12 @@ func New(options Options) (*Box, error) {
 		)
 	})
 	dnsTransportManager.Initialize(func() (adapter.DNSTransport, error) {
-		return local.NewTransport(
+		return dnsTransportRegistry.CreateDNSTransport(
 			ctx,
 			logFactory.NewLogger("dns/local"),
 			"local",
-			option.LocalDNSServerOptions{},
+			C.DNSTypeLocal,
+			&option.LocalDNSServerOptions{},
 		)
 	})
 	if platformInterface != nil {
@@ -559,7 +559,7 @@ func (s *Box) Close() error {
 		err = E.Append(err, closeItem.service.Close(), func(err error) error {
 			return E.Cause(err, "close ", closeItem.name)
 		})
-		s.logger.Trace("close ", closeItem.name, " completed (", F.Seconds(time.Since(startTime).Seconds()), "s)")
+		adapter.LogElapsed(s.logger, startTime, "close ", closeItem.name)
 	}
 	for _, lifecycleService := range s.internalService {
 		s.logger.Trace("close ", lifecycleService.Name())
@@ -567,14 +567,14 @@ func (s *Box) Close() error {
 		err = E.Append(err, lifecycleService.Close(), func(err error) error {
 			return E.Cause(err, "close ", lifecycleService.Name())
 		})
-		s.logger.Trace("close ", lifecycleService.Name(), " completed (", F.Seconds(time.Since(startTime).Seconds()), "s)")
+		adapter.LogElapsed(s.logger, startTime, "close ", lifecycleService.Name())
 	}
 	s.logger.Trace("close logger")
 	startTime := time.Now()
 	err = E.Append(err, s.logFactory.Close(), func(err error) error {
 		return E.Cause(err, "close logger")
 	})
-	s.logger.Trace("close logger completed (", F.Seconds(time.Since(startTime).Seconds()), "s)")
+	adapter.LogElapsed(s.logger, startTime, "close logger")
 	return err
 }
 
@@ -592,6 +592,10 @@ func (s *Box) Inbound() adapter.InboundManager {
 
 func (s *Box) Outbound() adapter.OutboundManager {
 	return s.outbound
+}
+
+func (s *Box) Endpoint() adapter.EndpointManager {
+	return s.endpoint
 }
 
 func (s *Box) LogFactory() log.Factory {

@@ -3,8 +3,8 @@ name: Publish Docker Images
 on:
   #push:
   #  branches:
-  #    - main-next
-  #    - dev-next
+  #    - stable
+  #    - testing
   release:
     types:
       - published
@@ -55,7 +55,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: ~1.25.7
+          go-version: ~1.25.9
       - name: Clone cronet-go
         if: matrix.naive
         run: |
@@ -104,17 +104,21 @@ jobs:
       - name: Set build tags
         run: |
           set -xeuo pipefail
-          TAGS='with_gvisor,with_quic,with_dhcp,with_wireguard,with_utls,with_acme,with_clash_api,with_tailscale,with_ccm,with_ocm,badlinkname,tfogo_checklinkname0'
           if [[ "${{ matrix.naive }}" == "true" ]]; then
-            TAGS="${TAGS},with_naive_outbound,with_musl"
+            TAGS="$(cat release/DEFAULT_BUILD_TAGS),with_musl"
+          else
+            TAGS=$(cat release/DEFAULT_BUILD_TAGS_OTHERS)
           fi
           echo "BUILD_TAGS=${TAGS}" >> "${GITHUB_ENV}"
+      - name: Set shared ldflags
+        run: |
+          echo "LDFLAGS_SHARED=$(cat release/LDFLAGS)" >> "${GITHUB_ENV}"
       - name: Build (naive)
         if: matrix.naive
         run: |
           set -xeuo pipefail
           go build -v -trimpath -o sing-box -tags "${BUILD_TAGS}" \
-          -ldflags "-X \"github.com/sagernet/sing-box/constant.Version=${VERSION}\" -X 'internal/godebug.defaultGODEBUG=multipathtcp=0' -s -w -buildid= -checklinkname=0" \
+          -ldflags "-X 'github.com/sagernet/sing-box/constant.Version=${VERSION}' ${LDFLAGS_SHARED} -s -w -buildid=" \
           ./cmd/sing-box
         env:
           CGO_ENABLED: "1"
@@ -127,7 +131,7 @@ jobs:
         run: |
           set -xeuo pipefail
           go build -v -trimpath -o sing-box -tags "${BUILD_TAGS}" \
-          -ldflags "-X \"github.com/sagernet/sing-box/constant.Version=${VERSION}\" -X 'internal/godebug.defaultGODEBUG=multipathtcp=0' -s -w -buildid= -checklinkname=0" \
+          -ldflags "-X 'github.com/sagernet/sing-box/constant.Version=${VERSION}' ${LDFLAGS_SHARED} -s -w -buildid=" \
           ./cmd/sing-box
         env:
           CGO_ENABLED: "0"
@@ -255,13 +259,13 @@ jobs:
           fi
           echo "ref=$ref"
           echo "ref=$ref" >> $GITHUB_OUTPUT
-          if [[ $ref == *"-"* ]]; then
-            latest=latest-beta
-          else
-            latest=latest
-          fi
-          echo "latest=$latest"
-          echo "latest=$latest" >> $GITHUB_OUTPUT
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        with:
+          ref: ${{ steps.ref.outputs.ref }}
+          fetch-depth: 0
+      - name: Detect track
+        run: bash .github/detect_track.sh
       - name: Download digests
         uses: actions/download-artifact@v5
         with:
@@ -281,11 +285,11 @@ jobs:
         working-directory: /tmp/digests
         run: |
           docker buildx imagetools create \
-            -t "${{ env.REGISTRY_IMAGE }}:${{ steps.ref.outputs.latest }}" \
+            -t "${{ env.REGISTRY_IMAGE }}:${{ env.DOCKER_TAG }}" \
             -t "${{ env.REGISTRY_IMAGE }}:${{ steps.ref.outputs.ref }}" \
             $(printf '${{ env.REGISTRY_IMAGE }}@sha256:%s ' *)
       - name: Inspect image
         if: github.event_name != 'push'
         run: |
-          docker buildx imagetools inspect ${{ env.REGISTRY_IMAGE }}:${{ steps.ref.outputs.latest }}
+          docker buildx imagetools inspect ${{ env.REGISTRY_IMAGE }}:${{ env.DOCKER_TAG }}
           docker buildx imagetools inspect ${{ env.REGISTRY_IMAGE }}:${{ steps.ref.outputs.ref }}
